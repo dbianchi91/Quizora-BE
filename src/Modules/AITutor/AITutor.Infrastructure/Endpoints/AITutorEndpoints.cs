@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using AITutor.Application.Commands.GenerateStudyPlan;
 using AITutor.Application.Interfaces;
 using AITutor.Application.Queries.GetStudyPlan;
@@ -35,20 +36,25 @@ internal sealed class AITutorEndpoints : IModuleEndpoints
                 user.FindFirstValue(JwtRegisteredClaimNames.Sub)!));
 
             ChatSession session;
+            bool isNewSession;
             if (req.SessionId.HasValue)
             {
                 var existing = await repo.GetSessionAsync(
                     ChatSessionId.From(req.SessionId.Value), ct);
+                isNewSession = existing is null;
                 session = existing ?? ChatSession.Create(userId);
             }
             else
             {
                 var latest = await repo.GetLatestSessionForUserAsync(userId, ct);
+                isNewSession = latest is null;
                 session = latest ?? ChatSession.Create(userId);
             }
 
-            if (session.Id == ChatSessionId.From(Guid.Empty))
+            if (isNewSession)
                 await repo.AddSessionAsync(session, ct);
+
+            session.AddUserMessage(req.Message);
 
             var history = session.Messages
                 .Select(m => new ChatMessageDto(m.Role, m.Content))
@@ -56,8 +62,6 @@ internal sealed class AITutorEndpoints : IModuleEndpoints
 
             var systemPrompt = await contextBuilder.BuildSystemPromptAsync(
                 userId.Value, req.PageContext, ct);
-
-            session.AddUserMessage(req.Message);
 
             response.ContentType = "text/event-stream";
             response.Headers.CacheControl = "no-cache";
@@ -67,10 +71,13 @@ internal sealed class AITutorEndpoints : IModuleEndpoints
             await foreach (var chunk in ai.StreamChatAsync(history, systemPrompt, ct))
             {
                 sb.Append(chunk);
-                var escaped = chunk.Replace("\n", "\\n").Replace("\r", "");
-                await response.WriteAsync($"data: {escaped}\n\n", ct);
+                var payload = JsonSerializer.Serialize(new { chunk });
+                await response.WriteAsync($"data: {payload}\n\n", ct);
                 await response.Body.FlushAsync(ct);
             }
+
+            await response.WriteAsync("data: [DONE]\n\n", ct);
+            await response.Body.FlushAsync(ct);
 
             session.AddAssistantMessage(sb.ToString());
             await repo.SaveChangesAsync(ct);

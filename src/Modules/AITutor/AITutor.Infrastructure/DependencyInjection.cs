@@ -21,7 +21,7 @@ public static class DependencyInjection
                 configuration.GetConnectionString("DefaultConnection"),
                 sql => sql.MigrationsAssembly(typeof(AITutorDbContext).Assembly.FullName)));
 
-        services.AddScoped<IAIProvider, ClaudeAIProvider>();
+        services.AddScoped<IAIProvider, OpenAiCompatibleAIProvider>();
         services.AddScoped<IAITutorRepository, AITutorRepository>();
         services.AddAITutorApplication();
         services.AddSingleton<IModuleEndpoints, AITutorEndpoints>();

@@ -34,7 +34,7 @@ public sealed class GenerateStudyPlanCommandHandler(
         await foreach (var chunk in ai.StreamChatAsync(planPrompt, systemPrompt, ct))
             sb.Append(chunk);
 
-        var contentJson = sb.ToString().Trim();
+        var contentJson = JsonResponseSanitizer.Extract(sb.ToString());
 
         var existingPlan = await repo.GetStudyPlanAsync(userId, ct);
         if (existingPlan is null)

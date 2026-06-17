@@ -17,7 +17,7 @@ Users can take timed exams or study-mode sessions, receive AI-powered tutoring, 
 | Validation | FluentValidation |
 | Caching | Redis (StackExchange.Redis) |
 | Database | SQL Server |
-| AI | Anthropic SDK (Claude `claude-sonnet-4-6`) |
+| AI | OpenAI-compatible provider (default Ollama `llama3.2:3b`) |
 | Auth | JWT RS256 + refresh token rotation |
 | Testing | xUnit, NSubstitute, Testcontainers |
 
@@ -122,7 +122,7 @@ Manages the lifecycle of exam and study sessions.
 
 ### AITutor
 
-Provides AI-powered tutoring and personalized study plans via the Claude API.
+Provides AI-powered tutoring and personalized study plans via an OpenAI-compatible provider (default Ollama).
 
 - Streaming chat (Server-Sent Events) with conversation history persistence
 - System prompt is dynamically built from the user's exam history and weak areas
@@ -182,7 +182,11 @@ Edit `Quizora.Api/appsettings.json` (or use user secrets):
     "PublicKeyPem": "..."
   },
   "AI": {
-    "Model": "claude-sonnet-4-6"
+    "Provider": "OpenAiCompatible",
+    "BaseUrl": "http://localhost:11434/v1",
+    "Model": "llama3.2:3b",
+    "ApiKey": "ollama",
+    "MaxTokens": "2048"
   }
 }
 ```

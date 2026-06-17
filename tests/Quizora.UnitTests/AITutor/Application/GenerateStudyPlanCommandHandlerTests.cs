@@ -93,6 +93,30 @@ public class GenerateStudyPlanCommandHandlerTests
         captured!.ContentJson.Should().Be("{\"priorityAreas\":[\"Math\"]}");
     }
 
+    [Fact]
+    public async Task Handle_AiReturnsJsonWithMarkdownFence_SavesCleanJson()
+    {
+        var userId = Guid.NewGuid();
+        var command = new GenerateStudyPlanCommand(userId, Automatic: false);
+
+        _contextBuilder.BuildSystemPromptAsync(userId, null, Arg.Any<CancellationToken>())
+            .Returns("system-prompt");
+
+        _ai.StreamChatAsync(Arg.Any<IReadOnlyList<ChatMessageDto>>(), "system-prompt", Arg.Any<CancellationToken>())
+            .Returns(AsyncEnumerable("```json\n{\"priorityAreas\":[\"Math\"]}\n```"));
+
+        _repo.GetStudyPlanAsync(Arg.Any<IdentityDomain.UserId>(), Arg.Any<CancellationToken>())
+            .Returns((StudyPlan?)null);
+
+        StudyPlan? captured = null;
+        await _repo.AddOrUpdateStudyPlanAsync(Arg.Do<StudyPlan>(p => captured = p), Arg.Any<CancellationToken>());
+
+        await _sut.Handle(command, CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.ContentJson.Should().Be("{\"priorityAreas\":[\"Math\"]}");
+    }
+
     private static async IAsyncEnumerable<string> AsyncEnumerable(params string[] chunks)
     {
         foreach (var chunk in chunks)
